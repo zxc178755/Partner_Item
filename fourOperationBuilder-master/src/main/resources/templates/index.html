@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>四则运算</title>
+    <meta http-equiv="content-type" content="text/html" charset="utf-8">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <link type="text/css" rel="stylesheet" th:href="@{/css/index.css}" />
+</head>
+<body>
+    <div class="formBox" id="app">
+        <form>
+            <div class="form-group">
+                <label for="InputNum">题目数量</label>
+                <input type="text" class="form-control" id="InputNum" v-model="inputNum" required>
+                <div class="invalid-feedback" v-if="numWarn">
+                    请输入正确的题目数量
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="InputScale">公式数值的最大值</label>
+                <input type="text" class="form-control" id="InputScale" v-model="inputScale" required>
+                <small id="emailHelp" class="form-text text-muted">数值包括自然数、真分数和真分数分母</small>
+                <div class="invalid-feedback" v-if="scaleWarn">
+                    请输入正确的最大值
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" @click="generateQues">生成运算</button>
+        </form>
+        <div class="tableBox" v-if="showTable">
+            <table class="table table-striped" v-if="quesList != null">
+                <thead class="thead-dark">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">题目</th>
+                    <th scope="col">答案</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="(ques, index) in showQuesList" :key="index">
+                    <th scope="row">{{ ques.number }}</th>
+                    <td style="min-width: 400px !important;">{{ ques.exp }}</td>
+                    <td>
+                        <input type="text" v-model="inputAnsList[ques.number - 1]">
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="text-align: center">
+                        <button type="button" class="btn btn-success" data-toggle="modal" data-target="#exampleModal" @click="submitAns">提交答案</button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- 分页器 -->
+        <nav aria-label="Page navigation example" v-if="showTable" @change="changeSize">
+            <select v-model="selected">
+                <option
+                        v-for="option in options"
+                        :key="option.id"
+                        :value="option"
+                        class="pageSize"
+                >{{ option }}</option>
+            </select>
+            <ul class="pagination">
+                <li class="page-item" @click="previousTo">
+                    <a class="page-link" href="#" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item"
+                    v-for="(item, index) in pagesSize"
+                    :key="index"
+                    @click="jumpTo(index + 1)"
+                >
+                    <a class="page-link" href="#">{{ index + 1 }}</a>
+                </li>
+                <li class="page-item" @click="nextTo">
+                    <a class="page-link" href="#" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <!-- 结果分析框 -->
+        <div
+                class="modal fade"
+                id="exampleModal"
+                tabindex="-1"
+                role="dialog"
+                aria-labelledby="exampleModalLabel"
+                aria-hidden="true"
+        >
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">计算结果</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        correct:
+                        <p>{{ correctList.length }} {{ correctList }}</p>
+                        wrong:
+                        <p>{{ errorList.length }} {{ errorList }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script>
+        const app = new Vue({
+            el: "#app",
+            data: {
+                showTable: false, // 显示表格
+                inputNum: '', // 输入的数量
+                inputScale: '', // 输入的范围
+                scaleWarn: false, // 输入验证
+                numWarn: false,
+                quesList: [], // 题目列表
+                ansList: [], // 返回的答案列表
+                inputAnsList: [], // 用户输入的答案列表
+                showQuesList: [], // 当前页显示的题目列表
+                correctList: [], // 正确的题号列表
+                errorList: [], // 错误的题号列表
+                selected: 10, // 分页器每页显示的题目数量
+                options: [], // 分页选项
+                pagesSize: 1, // 分页器的页数
+                currIndex: 1 // 当前页码
+            },
+            methods: {
+                // 获取题目
+                generateQues() {
+                    this.quesList = []
+                    this.ansList = []
+                    this.scaleWarn = false
+                    this.numWarn = false
+                    let reg = /^[0-9]+$/;
+
+                    if (reg.test(this.inputNum) && reg.test(this.inputScale)) {
+                        axios.post("http://localhost:8080/generate?questionNum=" + this.inputNum + "&maxLimit=" + this.inputScale)
+                            .then((res) => {
+                            for (let item of res.data) {
+                                let { answer, ...question } = item
+                                this.quesList.push(question)
+                                this.ansList.push(answer)
+                            }
+                            this.inputAnsList = Array(this.ansList.length).fill("") // 将输入的答案数组初始化为空
+
+                            let len = this.quesList.length
+                            this.showTable = true
+                            this.showQuesList = this.quesList.slice(0, this.selected) // 获取第一页的数据
+
+                            if (len < 200 ) {
+                                this.selected = 10
+                                this.options = [10, 20, 50, 100]
+                            } else if (len < 1000) {
+                                this.selected = 50
+                                this.options = [50, 100, 500]
+                            } else {
+                                this.selected = 500
+                                this.options = [500]
+                            }
+                            this.pagesSize = Math.ceil(len / this.selected)
+                            })
+                    } else {
+                        // 没有输入数据或数据类型错误
+                        if (!reg.test(this.inputNum) && !reg.test(this.inputScale)) {
+                            this.scaleWarn = true
+                            this.numWarn = true
+                        } else if (!reg.test(this.inputNum)) {
+                            this.numWarn = true
+                        } else if (!reg.test(this.inputScale)) {
+                            this.scaleWarn = true
+                        }
+                    }
+
+                },
+                // 改变每页显示的题目数量
+                changeSize() {
+                    this.pagesSize = Math.ceil(this.quesList.length / this.selected)
+
+                    let startIndex
+                    let endIndex
+                    if (this.currIndex <= this.pagesSize) {
+                        // 表格保留为当前页，并重新计算当前页题目的起始索引和结束索引
+                        startIndex = this.selected * (this.currIndex - 1)
+                        endIndex = this.selected * this.currIndex
+                    } else {
+                        // 表格跳转到最后一页，并重新计算当前页题目的起始索引和结束索引
+                        this.currIndex = this.pagesSize
+                        startIndex = this.selected * (this.currIndex - 1)
+                        endIndex = this.quesList.length
+                    }
+                    this.showQuesList = this.quesList.slice(startIndex, endIndex)
+                    this.$forceUpdate() // 更新表格
+                },
+                // 点击分页器跳转
+                jumpTo(index) {
+                    this.currIndex = index
+                    let startIndex = this.selected * (index - 1)
+                    let endIndex
+                    if (index < this.pagesSize) { // 不是最后一页
+                        endIndex = this.selected * index
+                    } else { // 最后一页
+                        endIndex = this.quesList.length
+                    }
+                    this.showQuesList = this.quesList.slice(startIndex, endIndex)
+                    this.$forceUpdate() // 更新表格
+                },
+                // 跳转到前一页
+                previousTo() {
+                    if (this.currIndex > 1) {
+                        let startIndex = this.selected * (this.currIndex - 2)
+                        let endIndex = this.selected * (this.currIndex - 1)
+                        this.showQuesList = this.quesList.slice(startIndex, endIndex)
+                        this.$forceUpdate()
+                        this.currIndex--
+                    }
+                },
+                // 跳转到后一页
+                nextTo() {
+                    if (this.currIndex < this.pagesSize) {
+                        let startIndex = this.selected * this.currIndex
+                        let endIndex
+
+                        if (this.currIndex < this.pagesSize - 1) {
+                            endIndex = this.selected * (this.currIndex + 1)
+                        } else if (this.currIndex === this.pagesSize - 1) {
+                            endIndex = this.quesList.length
+                        }
+                        this.showQuesList = this.quesList.slice(startIndex, endIndex)
+                        this.$forceUpdate()
+                        this.currIndex++
+                    }
+                },
+                // 提交答案
+                submitAns() {
+                    this.correctList = []
+                    this.errorList = []
+                    for (let [index, value] of this.inputAnsList.entries()) {
+                        if (value === this.ansList[index]) {
+                            this.correctList.push(index + 1)
+                        } else {
+                            this.errorList.push(index + 1)
+                        }
+                    }
+                    axios.post("http://localhost:8080/outputGrade?correct=Correct: " + this.correctList.length + " (" + this.correctList + ")&wrong=Wrong: " + this.errorList.length + " (" + this.errorList + ")")
+                        .then((res) => {
+                            console.log('生成结果文件');
+                        })
+                }
+            }
+        })
+    </script>
+</body>
+</html>

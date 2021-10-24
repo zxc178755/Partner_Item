@@ -1,0 +1,43 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+.formBox form {
+    width: 400px;
+    margin: auto;
+    padding: 10px 0;
+}
+button {
+    margin: auto;
+}
+.invalid-feedback {
+    display: block;
+}
+
+.formBox nav {
+    text-align: center;
+    margin-top: 10px;
+}
+.formBox nav .pagination,
+.formBox nav .pagination li {
+    display: inline-block;
+}
+
+.formBox .tableBox {
+    width: 700px;
+    margin: auto;
+    height: 400px;
+    overflow-y: auto;
+}
+.formBox .tableBox table {
+    /*width: 650px !important;*/
+    border-collapse: separate !important;
+}
+.formBox .tableBox table thead th {
+    text-align: center;
+}
+.formBox .tableBox table input {
+    outline: none;
+    border-radius: 4px;
+    border-color: darkgray;
+}
